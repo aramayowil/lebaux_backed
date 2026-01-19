@@ -6,25 +6,29 @@ import validatePassword from '../utils/Regex/PasswordRegex'
 import { hashPassword } from '../utils/functions/hashedPassword'
 import generateToken from '@/utils/functions/generateToken'
 import comparePassword from '@/utils/functions/comparePassword'
+import IUser from '../interface/IUser'
 
 //funcion para registrar un usuario
 
 const register = async (req: Request, res: Response) => {
   try {
-    const { email, username, password } = req.body
-
     //validaciones correspondintes de seguridad
 
     // Validación de tipos y existencia
-    if (
-      typeof email !== 'string' ||
-      typeof username !== 'string' ||
-      typeof password !== 'string'
-    ) {
-      return res
-        .status(400)
-        .json({ error: 'All fields are required and must be strings' })
+    const requiredFields: (keyof IUser)[] = ['email', 'username', 'password']
+
+    // "Busca si algún campo requerido no está presente o no es del tipo correcto"
+    const missingField = requiredFields.find(
+      (field) => !req.body[field] || typeof req.body[field] !== 'string',
+    )
+
+    if (missingField) {
+      return res.status(400).json({
+        error: `Field '${missingField}' is missing or invalid`,
+      })
     }
+
+    const { email, username, password } = req.body
 
     const cleanEmail = email.trim().toLowerCase()
     const cleanUsername = username.trim()
@@ -32,9 +36,6 @@ const register = async (req: Request, res: Response) => {
     const existsEmail = await UserModel.findUserByEmail(cleanEmail)
     const existsUsername = await UserModel.findUserByUsername(cleanUsername)
 
-    if (!cleanEmail || !cleanUsername || !password) {
-      return res.status(400).json({ error: 'Missing required fields' })
-    }
     if (!validateEmail(cleanEmail)) {
       return res.status(400).json({ error: 'Invalid email' })
     }
