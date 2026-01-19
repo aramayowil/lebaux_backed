@@ -110,7 +110,23 @@ const login = async (req: Request, res: Response) => {
   }
 }
 
+//profile
+const profile = async (req: Request, res: Response) => {
+  const { email } = req.body
+  try {
+    const user = await UserModel.findUserByEmail(email)
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+    res.status(200).json({ ok: true, message: 'User profile', user })
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ ok: false, message: 'Error en el perfil' })
+  }
+}
+
 export const userController = {
   register,
   login,
+  profile,
 }
