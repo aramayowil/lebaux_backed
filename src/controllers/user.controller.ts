@@ -8,6 +8,7 @@ import comparePassword from '@/utils/functions/comparePassword'
 import IUser from '../interface/IUser'
 import { validateName } from '@/utils/Regex/nameRegex'
 import { sendWelcomeEmail } from '@/services/email.service'
+import crypto from 'crypto'
 
 //funcion para registrar un usuario
 
@@ -59,21 +60,28 @@ const register = async (req: Request, res: Response) => {
       return res.status(409).json({ error: 'Email already exists' })
     }
 
+    //Generar token de 24 horas
+    const vToken = crypto.randomBytes(32).toString('hex')
+    const expiration = new Date()
+    expiration.setHours(expiration.getHours() + 24)
+    //Hashear la contraseña
     const hashedPassword = await hashPassword(password_hash)
 
     const finalRol: 'admin' | 'user' = 'user'
     const finalIsVerified: boolean = false
 
-    const newUser = await UserModel.createUser({
+    const newUser: IUser = await UserModel.createUser({
       email: cleanEmail,
       nombre: cleanNombre,
       apellido: cleanApellido,
       rol: finalRol,
       is_verified: finalIsVerified,
       password_hash: hashedPassword,
+      verification_token: vToken,
+      token_expires_at: expiration,
     })
 
-    sendWelcomeEmail(newUser.email, newUser.nombre).then((response) => {
+    sendWelcomeEmail(newUser.email, newUser.nombre, vToken).then((response) => {
       if (!response.success) {
         console.error('Error enviando email:', response.error)
       }
@@ -111,14 +119,14 @@ const resendVerificationEmail = async (req: Request, res: Response) => {
         .status(400)
         .json({ error: 'Esta cuenta ya ha sido verificada.' })
     }
-    const emailResponse = await sendWelcomeEmail(user.email, user.nombre)
+    // const emailResponse = await sendWelcomeEmail(user.email, user.nombre)
 
-    if (!emailResponse.success) {
-      return res.status(500).json({
-        error: 'Error al enviar el correo',
-        details: emailResponse.error,
-      })
-    }
+    // if (!emailResponse.success) {
+    //   return res.status(500).json({
+    //     error: 'Error al enviar el correo',
+    //     details: emailResponse.error,
+    //   })
+    // }
 
     res.status(200).json({
       ok: true,
@@ -133,9 +141,9 @@ const resendVerificationEmail = async (req: Request, res: Response) => {
 //funcion para verificar un usuario a traves de su email
 const verifyEmail = async (req: Request, res: Response) => {
   try {
-    const { email } = req.query
+    const { email, vToken } = req.query
 
-    if (!email) {
+    if (!email || !vToken) {
       return res.status(400).json({
         ok: false,
         error: 'INVALID_LINK',
@@ -143,30 +151,52 @@ const verifyEmail = async (req: Request, res: Response) => {
       })
     }
 
-    const user = await UserModel.verifyUserEmail(
+    const user = await UserModel.findUserByEmail(
       email.toString().trim().toLowerCase(),
     )
 
-    if (user && user.is_verified) {
-      return res.status(200).json({
-        ok: true,
-        message:
-          'Esta cuenta ya ha sido verificada anteriormente. ¡Puedes loguearte!',
-      })
-    }
-
-    if (user) {
-      return res.status(200).json({
-        ok: true,
-        message: 'Email verificado con éxito. Ya puedes iniciar sesión.',
-      })
-    } else {
+    if (!user) {
       return res.status(404).json({
         ok: false,
         error: 'USER_NOT_FOUND',
-        message: 'No se encontró el usuario o la cuenta ya ha sido activada.',
+        message: 'No se encontró un usuario asociado a este correo.',
       })
     }
+
+    if (user.is_verified) {
+      return res.status(200).json({
+        ok: true,
+        message: 'Esta cuenta ya ha sido verificada. ¡Puedes iniciar sesión!',
+      })
+    }
+
+    //VALIDACIÓN DE SEGURIDAD: Comparar tokens y fecha de expiración
+    const now = new Date()
+
+    if (user.verification_token !== vToken) {
+      return res.status(400).json({
+        ok: false,
+        error: 'INVALID_TOKEN',
+        message: 'El token de verificación es inválido.',
+      })
+    }
+
+    if (user.token_expires_at && now > new Date(user.token_expires_at)) {
+      return res.status(410).json({
+        ok: false,
+        error: 'TOKEN_EXPIRED',
+        message:
+          'El enlace ha expirado. Por favor, solicita uno nuevo iniciando sesion.',
+      })
+    }
+
+    //Actualizar usuario a verificado
+    await UserModel.updateUserVerification(user.usuario_id)
+
+    res.status(200).json({
+      ok: true,
+      message: 'Email verificado con éxito. Ya puedes iniciar sesión.',
+    })
   } catch (error) {
     console.error(error)
     res.status(500).json({

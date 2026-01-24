@@ -9,14 +9,27 @@ VALUES ('admin@admin.com', 'admin', 'principal', 'Milanesa01', 'admin', true);
 CREATE TYPE users.user_role AS ENUM ('admin', 'user');
 
 CREATE TABLE users.tb_users (
+    -- Datos básicos de identidad
     usuario_id SERIAL PRIMARY KEY,
     nombre TEXT NOT NULL,
-	apellido TEXT NOT NULL,
+    apellido TEXT NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(60) NOT NULL, 
     rol users.user_role DEFAULT 'user',
+
+    -- Seguridad y Verificación de Email
     is_verified BOOLEAN DEFAULT FALSE,
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    verification_token TEXT,
+    token_expires_at TIMESTAMP,
+
+    -- Control de Experiencia de Usuario (UX)
+    welcome_shown BOOLEAN DEFAULT FALSE,
+    last_version_seen TEXT DEFAULT '1.0.0',
+
+    -- Tiempos y Auditoría (Estandarizado)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Reemplaza a fecha_creacion
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- LA COLUMNA QUE FALTABA
+    last_login TIMESTAMP
 );
 
 

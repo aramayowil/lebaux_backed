@@ -10,9 +10,11 @@ const createUser = async ({
   rol,
   is_verified,
   password_hash,
-}: IUser) => {
+  verification_token,
+  token_expires_at,
+}: Omit<IUser, 'usuario_id'>): Promise<IUser> => {
   const query = {
-    text: 'INSERT INTO users.tb_users (email, nombre, apellido, rol, is_verified, password_hash) VALUES ($1, $2, $3, $4, $5, $6) RETURNING email, nombre, apellido, rol, is_verified',
+    text: 'INSERT INTO users.tb_users (email, nombre, apellido, rol, is_verified, password_hash, verification_token, token_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING usuario_id, email, nombre, apellido, rol, is_verified',
     values: [
       email,
       nombre,
@@ -20,20 +22,35 @@ const createUser = async ({
       rol || 'user',
       is_verified || false,
       password_hash,
+      verification_token,
+      token_expires_at,
     ],
   }
   const result = await pool.query(query)
-  return result.rows[0]
+  return result.rows[0] as IUser
 }
 
-//funcion para verificar un usuario a traves de su email
-const verifyUserEmail = async (email: string): Promise<IUser | undefined> => {
+const updateUserVerification = async (usuario_id: number): Promise<void> => {
   const query = {
-    text: 'UPDATE users.tb_users SET is_verified = true WHERE email = $1',
-    values: [email],
+    text: `
+    UPDATE users.tb_users 
+    SET 
+      is_verified = true, 
+      verification_token = NULL, 
+      token_expires_at = NULL,
+      updated_at = NOW()
+    WHERE usuario_id = $1
+  `,
+    values: [usuario_id],
   }
-  const result = await pool.query(query)
-  return result.rows[0]
+
+  try {
+    // Ejecutamos la consulta pasando el ID del usuario
+    await pool.query(query)
+  } catch (error) {
+    console.error('Error al actualizar la verificación en DB:', error)
+    throw new Error('Database update failed')
+  }
 }
 
 const findAllUsers = async (): Promise<IUser[]> => {
@@ -57,5 +74,5 @@ export const UserModel = {
   createUser,
   findAllUsers,
   findUserByEmail,
-  verifyUserEmail,
+  updateUserVerification,
 }
