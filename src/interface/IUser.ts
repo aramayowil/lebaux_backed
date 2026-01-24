@@ -1,6 +1,10 @@
 export default interface IUser {
-  uid?: number
+  usuario_id?: number
   email: string
-  username: string
-  password: string
+  nombre: string
+  apellido: string
+  password_hash: string
+  rol: 'admin' | 'user'
+  is_verified?: boolean
+  readonly fecha_creacion?: string //solo lectura
 }
