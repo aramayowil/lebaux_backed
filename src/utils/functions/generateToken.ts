@@ -10,7 +10,13 @@ const generateToken = (user: IUser) => {
     throw new Error('JWT_SECRET no está definido en las variables de entorno')
   }
 
-  return jwt.sign({ id: user.uid }, secret, { expiresIn: '1h' })
+  const payload = {
+    id: user.usuario_id,
+    email: user.email,
+    rol: user.rol,
+  }
+
+  return jwt.sign(payload, secret, { expiresIn: '24h' })
 }
 
 export default generateToken
