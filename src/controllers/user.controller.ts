@@ -9,6 +9,7 @@ import IUser from '../interface/IUser'
 import { validateName } from '@/utils/Regex/nameRegex'
 import { sendWelcomeEmail } from '@/services/email.service'
 import crypto from 'crypto'
+import { generateVerificationData } from '@/utils/token.utils'
 
 //funcion para registrar un usuario
 
@@ -61,9 +62,7 @@ const register = async (req: Request, res: Response) => {
     }
 
     //Generar token de 24 horas
-    const vToken = crypto.randomBytes(32).toString('hex')
-    const expiration = new Date()
-    expiration.setHours(expiration.getHours() + 24)
+    const { vToken, expiration } = generateVerificationData()
     //Hashear la contraseña
     const hashedPassword = await hashPassword(password_hash)
 
@@ -74,7 +73,7 @@ const register = async (req: Request, res: Response) => {
       email: cleanEmail,
       nombre: cleanNombre,
       apellido: cleanApellido,
-      rol: finalRol,
+      role: finalRol,
       is_verified: finalIsVerified,
       password_hash: hashedPassword,
       verification_token: vToken,
@@ -104,7 +103,7 @@ const register = async (req: Request, res: Response) => {
 //funcion para reenviar correo de verificacion
 const resendVerificationEmail = async (req: Request, res: Response) => {
   try {
-    const { email } = req.body
+    const { email, vToken } = req.body
 
     if (!email) return res.status(400).json({ error: 'Email es requerido' })
 
@@ -119,14 +118,14 @@ const resendVerificationEmail = async (req: Request, res: Response) => {
         .status(400)
         .json({ error: 'Esta cuenta ya ha sido verificada.' })
     }
-    // const emailResponse = await sendWelcomeEmail(user.email, user.nombre)
+    const emailResponse = await sendWelcomeEmail(user.email, user.nombre, vToken)
 
-    // if (!emailResponse.success) {
-    //   return res.status(500).json({
-    //     error: 'Error al enviar el correo',
-    //     details: emailResponse.error,
-    //   })
-    // }
+    if (!emailResponse.success) {
+      return res.status(500).json({
+        error: 'Error al enviar el correo',
+        details: emailResponse.error,
+      })
+    }
 
     res.status(200).json({
       ok: true,
@@ -177,7 +176,8 @@ const verifyEmail = async (req: Request, res: Response) => {
       return res.status(400).json({
         ok: false,
         error: 'INVALID_TOKEN',
-        message: 'El token de verificación es inválido.',
+        message: 'El código de verificación no es válido para este correo.',
+        email: user.email
       })
     }
 
@@ -216,13 +216,13 @@ const login = async (req: Request, res: Response) => {
     if (typeof email !== 'string' || typeof password !== 'string') {
       return res
         .status(400)
-        .json({ error: 'Email and password must be strings' })
+        .json({ error: 'Email y contraseña deben ser strings' })
     }
     //limpiamos espacios en blanco del email y lo convertimos a minusculas para evitar errores de tipeo
     const cleanEmail = email.trim().toLowerCase()
 
     if (!validateEmail(cleanEmail)) {
-      return res.status(400).json({ error: 'Invalid email' })
+      return res.status(400).json({ error: 'Email no tiene un formato valido' })
     }
 
     const user = await UserModel.findUserByEmail(cleanEmail)
@@ -232,15 +232,23 @@ const login = async (req: Request, res: Response) => {
       : false
 
     if (!isMatch || !user) {
-      return res.status(401).json({ error: 'Invalid email or password' })
+      return res.status(401).json({ error: 'Email o contraseña inválidos' })
     }
 
     if (!user.is_verified) {
+      const { vToken, expiration } = generateVerificationData()
+      await UserModel.updateVerificationToken(user.usuario_id, vToken, expiration)
+
+      sendWelcomeEmail(user.email, user.nombre, vToken).then((response) => {
+        if (!response.success) {
+          console.error('Error enviando email:', response.error)
+        }
+      })
       return res.status(403).json({
         ok: false,
         error: 'EMAIL_NOT_VERIFIED',
         message:
-          'Tu cuenta aún no ha sido verificada. Revisa tu correo electrónico.',
+          'Tu cuenta no está verificada. Te hemos enviado un nuevo enlace de activación.',
       })
     }
 
@@ -248,7 +256,16 @@ const login = async (req: Request, res: Response) => {
 
     res
       .status(200)
-      .json({ ok: true, message: 'User logged in successfully', token })
+      .json({
+        ok: true, message: 'Login exitoso',
+        token,
+        user: {
+          id: user.usuario_id,
+          email: user.email,
+          nombre: user.nombre,
+          role: user.role
+        }
+      })
   } catch (error) {
     console.log(error)
     res.status(500).json({ ok: false, message: 'Error en el login' })

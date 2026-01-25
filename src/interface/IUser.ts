@@ -4,7 +4,7 @@ export default interface IUser {
   nombre: string
   apellido: string
   password_hash: string
-  rol?: 'admin' | 'user' // Opcional para facilitar el registro
+  role?: 'admin' | 'user' // Opcional para facilitar el registro
   verification_token?: string | null
   token_expires_at?: Date | null
   welcome_shown?: boolean

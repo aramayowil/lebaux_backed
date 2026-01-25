@@ -13,10 +13,10 @@ const generateToken = (user: IUser) => {
   const payload = {
     id: user.usuario_id,
     email: user.email,
-    rol: user.rol,
+    role: user.role,
   }
 
-  return jwt.sign(payload, secret, { expiresIn: '24h' })
+  return jwt.sign(payload, secret, { expiresIn: '8h' })
 }
 
 export default generateToken
