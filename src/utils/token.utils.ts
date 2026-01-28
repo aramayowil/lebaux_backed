@@ -1,11 +1,11 @@
-import crypto from 'crypto';
+import crypto from 'crypto'
 
 export const generateVerificationData = () => {
-    const vToken = crypto.randomBytes(32).toString('hex');
+  const vToken = crypto.randomBytes(32).toString('hex')
 
-    // Seteamos la expiración (8 horas en tu caso)
-    const expiration = new Date();
-    expiration.setHours(expiration.getHours() + 8);
+  // Seteamos la expiración (8 horas en tu caso)
+  const expiration = new Date()
+  expiration.setHours(expiration.getHours() + 3)
 
-    return { vToken, expiration };
-};
+  return { vToken, expiration }
+}

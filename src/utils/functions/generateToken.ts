@@ -2,7 +2,7 @@ import 'dotenv/config'
 import jwt from 'jsonwebtoken'
 import IUser from '../../interface/IUser'
 
-const generateToken = (user: IUser) => {
+const generateAuthToken = (user: IUser) => {
   // Verificamos que la clave secreta exista
   const secret = process.env.JWT_SECRET
 
@@ -19,4 +19,4 @@ const generateToken = (user: IUser) => {
   return jwt.sign(payload, secret, { expiresIn: '8h' })
 }
 
-export default generateToken
+export default generateAuthToken

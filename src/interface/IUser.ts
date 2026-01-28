@@ -3,7 +3,7 @@ export default interface IUser {
   email: string
   nombre: string
   apellido: string
-  password_hash: string
+  password: string
   role?: 'admin' | 'user' // Opcional para facilitar el registro
   verification_token?: string | null
   token_expires_at?: Date | null

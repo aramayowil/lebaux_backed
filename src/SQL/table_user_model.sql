@@ -14,7 +14,7 @@ CREATE TABLE users.tb_users (
     nombre TEXT NOT NULL,
     apellido TEXT NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(60) NOT NULL, 
+    password VARCHAR(60) NOT NULL, 
     role users.user_role DEFAULT 'user',
 
     -- Seguridad y Verificación de Email

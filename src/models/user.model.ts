@@ -9,19 +9,19 @@ const createUser = async ({
   apellido,
   role,
   is_verified,
-  password_hash,
+  password,
   verification_token,
   token_expires_at,
 }: Omit<IUser, 'usuario_id'>): Promise<IUser> => {
   const query = {
-    text: 'INSERT INTO users.tb_users (email, nombre, apellido, rol, is_verified, password_hash, verification_token, token_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING usuario_id, email, nombre, apellido, rol, is_verified',
+    text: 'INSERT INTO users.tb_users (email, nombre, apellido, rol, is_verified, password, verification_token, token_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING usuario_id, email, nombre, apellido, rol, is_verified',
     values: [
       email,
       nombre,
       apellido,
       role || 'user',
       is_verified || false,
-      password_hash,
+      password,
       verification_token,
       token_expires_at,
     ],
@@ -30,7 +30,8 @@ const createUser = async ({
   return result.rows[0] as IUser
 }
 
-const updateUserVerification = async (usuario_id: number): Promise<void> => {
+//actualiza la verificacion del usuario
+const verifyUserAndClearToken = async (usuario_id: number): Promise<void> => {
   const query = {
     text: `
     UPDATE users.tb_users 
@@ -53,12 +54,11 @@ const updateUserVerification = async (usuario_id: number): Promise<void> => {
   }
 }
 
-
 // Actualiza el token para reenvíos (mantiene is_verified = false)
 const updateVerificationToken = async (
   usuario_id: number,
   token: string,
-  expiresAt: Date
+  expiresAt: Date,
 ): Promise<void> => {
   const query = {
     text: `
@@ -73,13 +73,36 @@ const updateVerificationToken = async (
   }
 
   try {
-    await pool.query(query);
+    await pool.query(query)
   } catch (error) {
     console.error('Error al actualizar el token de verificación:', error)
     throw new Error('Database update failed')
   }
-};
+}
 
+const updatePassword = async (
+  usuario_id: number,
+  password: string,
+): Promise<void> => {
+  const query = {
+    text: `
+      UPDATE users.tb_users 
+      SET 
+        password = $1,
+        updated_at = NOW()
+      WHERE usuario_id = $2
+    `,
+    values: [password, usuario_id],
+  }
+
+  try {
+    await pool.query(query)
+  } catch (error) {
+    console.error('Error al actualizar la contraseña en DB:', error)
+    throw new Error('Database update failed')
+  }
+}
+//obtiene todos los usuarios
 const findAllUsers = async (): Promise<IUser[]> => {
   const query = {
     text: 'SELECT * FROM users.tb_users',
@@ -101,6 +124,7 @@ export const UserModel = {
   createUser,
   findAllUsers,
   findUserByEmail,
-  updateUserVerification,
+  verifyUserAndClearToken,
   updateVerificationToken,
+  updatePassword,
 }
