@@ -1,4 +1,5 @@
-import 'dotenv/config'
+import dotenv from 'dotenv'
+dotenv.config()
 import express from 'express'
 import cors from 'cors'
 import userRoutes from './routes/user.routes'
@@ -10,6 +11,9 @@ app.use(express.urlencoded({ extended: true }))
 
 //Routes
 app.use('/api/users', userRoutes)
+app.get('/', (req, res) => {
+  res.send('Lebaux Backend')
+})
 
 const PORT: number = Number(process.env.PORT) || 4000
 

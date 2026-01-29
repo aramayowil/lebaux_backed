@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const FRONTEND_URL = process.env.MY_DOMINIO_URL || 'http://localhost:5173'
 const FROM_EMAIL = `"Lebaux Aberturas" <${process.env.EMAIL_USER}>`
 
 export const sendWelcomeEmail = async (
