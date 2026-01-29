@@ -3,6 +3,7 @@ dotenv.config()
 import express from 'express'
 import cors from 'cors'
 import userRoutes from './routes/user.routes'
+import path from 'path'
 
 const app = express()
 app.use(cors({ origin: '*' }))
@@ -11,6 +12,15 @@ app.use(express.urlencoded({ extended: true }))
 
 //Routes
 app.use('/api/users', userRoutes)
+
+app.get('/', (req, res) => {
+  res.send('API de Lebaux funcionando correctamente 🚀')
+})
+
+app.get('/favicon.png', (req, res) => {
+  const pathLogo = path.join(process.cwd(), 'favicon.png')
+  res.sendFile(pathLogo)
+})
 
 const PORT: number = Number(process.env.PORT) || 4000
 
