@@ -3,15 +3,15 @@ import { Request, Response } from 'express'
 import validateEmail from '../utils/Regex/emailRegex'
 import validatePassword from '../utils/Regex/PasswordRegex'
 import { hashPassword } from '../utils/functions/hashedPassword'
-import generateAuthToken from '@/utils/functions/generateToken'
-import comparePassword from '@/utils/functions/comparePassword'
+import generateAuthToken from '../utils/functions/generateToken'
+import comparePassword from '../utils/functions/comparePassword'
 import IUser from '../interface/IUser'
-import { validateName } from '@/utils/Regex/nameRegex'
+import { validateName } from '../utils/Regex/nameRegex'
 import {
   sendWelcomeEmail,
   sendResetPasswordEmail,
-} from '@/services/email.service'
-import { generateVerificationData } from '@/utils/token.utils'
+} from '../services/email.service'
+import { generateVerificationData } from '../utils/token.utils'
 
 //funcion para registrar un usuario
 

@@ -1,17 +1,14 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
+    "target": "ES6",
+    "module": "CommonJS", // <--- Genera código compatible con require()
+    "moduleResolution": "node", // <--- Busca archivos sin necesidad de .js
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "esModuleInterop": true, // Permite usar 'import' en vez de 'require' en TS
     "skipLibCheck": true,
     "strict": true,
-    "noEmit": false,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "outDir": "./dist"
+    "noEmit": false // Permite que Vercel genere los archivos finales
   },
   "include": ["src/**/*"]
 }
