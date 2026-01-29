@@ -14,6 +14,9 @@ app.use('/api/users', userRoutes)
 
 const PORT: number = Number(process.env.PORT) || 4000
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`)
-})
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 4000
+  app.listen(PORT, () => console.log(`Servidor local en puerto ${PORT}`))
+}
+
+export default app
