@@ -7,8 +7,11 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false,
   },
+  // Configuraciones óptimas para el modo Transaction de Supabase
+  max: 1,
+  idleTimeoutMillis: 0,
+  connectionTimeoutMillis: 5000,
 })
-
 try {
   await pool.connect()
   console.log('DATABASE connected')
