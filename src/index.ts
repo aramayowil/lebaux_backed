@@ -11,6 +11,9 @@ app.use(express.urlencoded({ extended: true }))
 
 //Routes
 app.use('/api/users', userRoutes)
+app.get('/', (req, res) => {
+  res.send('Lebaux Backend')
+})
 
 const PORT: number = Number(process.env.PORT) || 4000
 
