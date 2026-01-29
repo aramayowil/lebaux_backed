@@ -100,11 +100,17 @@ const register = async (req: Request, res: Response) => {
       token_expires_at: expiration,
     })
 
-    sendWelcomeEmail(newUser.email, newUser.nombre, vToken).then((response) => {
-      if (!response.success) {
-        console.error('Error enviando email:', response.error)
-      }
-    })
+    sendWelcomeEmail(newUser.email, newUser.nombre, vToken)
+      .then((response) => {
+        if (response.success) {
+          console.log(`Email de bienvenida enviado a: ${newUser.email}`)
+        } else {
+          console.error('Falló el envío del email:', response.error)
+        }
+      })
+      .catch((err) => {
+        console.error('Error en el servicio de email:', err)
+      })
 
     res.status(201).json({
       ok: true,
@@ -303,11 +309,17 @@ const login = async (req: Request, res: Response) => {
         expiration,
       )
 
-      sendWelcomeEmail(user.email, user.nombre, vToken).then((response) => {
-        if (!response.success) {
-          console.error('Error enviando email:', response.error)
-        }
-      })
+      sendWelcomeEmail(user.email, user.nombre, vToken)
+        .then((response) => {
+          if (response.success) {
+            console.log(`Email de bienvenida enviado a: ${user.email}`)
+          } else {
+            console.error('Falló el envío del email:', response.error)
+          }
+        })
+        .catch((err) => {
+          console.error('Error en el servicio de email:', err)
+        })
       return res.status(403).json({
         ok: false,
         data: { email: user.email, nombre: user.nombre },
@@ -324,10 +336,12 @@ const login = async (req: Request, res: Response) => {
       message: 'Login exitoso',
       auth_token,
       user: {
-        id: user.usuario_id,
+        usuario_id: user.usuario_id,
         email: user.email,
         nombre: user.nombre,
+        apellido: user.apellido,
         role: user.role,
+        photo_profile: user.photo_profile,
       },
     })
   } catch (error) {
@@ -395,11 +409,17 @@ const sendEmailResetPassword = async (req: Request, res: Response) => {
     }
     const { vToken, expiration } = generateVerificationData()
     await UserModel.updateVerificationToken(user.usuario_id, vToken, expiration)
-    sendResetPasswordEmail(user.email, user.nombre, vToken).then((response) => {
-      if (!response.success) {
-        console.error('Error enviando email:', response.error)
-      }
-    })
+    sendResetPasswordEmail(user.email, user.nombre, vToken)
+      .then((response) => {
+        if (response.success) {
+          console.log(`Email de recuperacion enviado a: ${user.email}`)
+        } else {
+          console.error('Falló el envío del email:', response.error)
+        }
+      })
+      .catch((err) => {
+        console.error('Error en el servicio de email:', err)
+      })
     res.status(200).json({
       ok: true,
       message: 'Correo de recuperación enviado con éxito.',
@@ -497,6 +517,72 @@ const resetPassword = async (req: Request, res: Response) => {
   }
 }
 
+const updatePhotoProfile = async (req: Request, res: Response) => {
+  try {
+    const { id, scrPhoto } = req.body
+
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Id no proporcionado',
+        error: 'Id not provided',
+      })
+    }
+    if (typeof id !== 'number') {
+      return res.status(400).json({
+        ok: false,
+        message: 'tipo de dato inválido',
+        error: 'Invalid data type',
+      })
+    }
+
+    if (!scrPhoto) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Foto de perfil no proporcionada',
+        error: 'Photo profile not provided',
+      })
+    }
+
+    if (typeof scrPhoto !== 'string') {
+      return res.status(400).json({
+        ok: false,
+        message: 'tipo de dato inválido',
+        error: 'Invalid data type',
+      })
+    }
+    const user = await UserModel.findUserById(id)
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Usuario no encontrado',
+        error: 'User not found',
+      })
+    }
+
+    await UserModel.updatePhotoProfile(user.usuario_id, scrPhoto)
+    res.status(200).json({
+      ok: true,
+      message: 'Foto de perfil actualizada con éxito.',
+      user: {
+        usuario_id: user.usuario_id,
+        email: user.email,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        role: user.role,
+        is_verified: user.is_verified,
+        photo_profile: scrPhoto,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      ok: false,
+      message: 'Error interno del servidor',
+      error: 'Internal server error',
+    })
+  }
+}
 export const userController = {
   register,
   login,
@@ -506,4 +592,5 @@ export const userController = {
   verifyEmail,
   sendEmailResetPassword,
   resetPassword,
+  updatePhotoProfile,
 }

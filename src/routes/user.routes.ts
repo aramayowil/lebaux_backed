@@ -15,7 +15,11 @@ router.post(
 
 router.get('/verify-account', userController.verifyEmail)
 
+//Rutas de recuperacion de contraseña
 router.post('/forgot-password', userController.sendEmailResetPassword)
 router.put('/reset-password', userController.resetPassword)
+
+//Rutas de actualizacion de perfil
+router.put('/update-photo-profile', userController.updatePhotoProfile) // poner middleware
 
 export default router

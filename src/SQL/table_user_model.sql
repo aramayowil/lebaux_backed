@@ -2,7 +2,7 @@ DROP TABLE IF EXISTS users.tb_users
 
 
 -- Ejemplo de inserción manual para el primer administrador
-INSERT INTO users.tb_users (email, nombre, apellido, password_hash, rol, is_verified) 
+INSERT INTO users.tb_users (email, nombre, apellido, password_hash, role, is_verified) 
 VALUES ('admin@admin.com', 'admin', 'principal', 'Milanesa01', 'admin', true);
 
 -- Creamos un tipo personalizado para los roles
@@ -16,6 +16,9 @@ CREATE TABLE users.tb_users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(60) NOT NULL, 
     role users.user_role DEFAULT 'user',
+
+    --Foto de perfil
+    photo_profile VARCHAR(255) DEFAULT NULL,
 
     -- Seguridad y Verificación de Email
     is_verified BOOLEAN DEFAULT FALSE,

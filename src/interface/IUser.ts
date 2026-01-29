@@ -5,6 +5,7 @@ export default interface IUser {
   apellido: string
   password: string
   role?: 'admin' | 'user' // Opcional para facilitar el registro
+  photo_profile?: string | null
   verification_token?: string | null
   token_expires_at?: Date | null
   welcome_shown?: boolean

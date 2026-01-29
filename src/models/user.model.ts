@@ -14,7 +14,7 @@ const createUser = async ({
   token_expires_at,
 }: Omit<IUser, 'usuario_id'>): Promise<IUser> => {
   const query = {
-    text: 'INSERT INTO users.tb_users (email, nombre, apellido, rol, is_verified, password, verification_token, token_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING usuario_id, email, nombre, apellido, rol, is_verified',
+    text: 'INSERT INTO users.tb_users (email, nombre, apellido, role, is_verified, password, verification_token, token_expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING usuario_id, email, nombre, apellido, role, is_verified',
     values: [
       email,
       nombre,
@@ -120,6 +120,38 @@ const findUserByEmail = async (email: string): Promise<IUser | undefined> => {
   return result.rows[0]
 }
 
+const findUserById = async (id: number): Promise<IUser | undefined> => {
+  const query = {
+    text: 'SELECT * FROM users.tb_users WHERE usuario_id = $1',
+    values: [id],
+  }
+  const result = await pool.query(query)
+  return result.rows[0]
+}
+
+const updatePhotoProfile = async (
+  usuario_id: number,
+  photo_profile: string,
+): Promise<void> => {
+  const query = {
+    text: `
+      UPDATE users.tb_users 
+      SET 
+        photo_profile = $1,
+        updated_at = NOW()
+      WHERE usuario_id = $2
+    `,
+    values: [photo_profile, usuario_id],
+  }
+
+  try {
+    await pool.query(query)
+  } catch (error) {
+    console.error('Error al actualizar la foto de perfil en DB:', error)
+    throw new Error('Database update failed')
+  }
+}
+
 export const UserModel = {
   createUser,
   findAllUsers,
@@ -127,4 +159,6 @@ export const UserModel = {
   verifyUserAndClearToken,
   updateVerificationToken,
   updatePassword,
+  findUserById,
+  updatePhotoProfile,
 }
