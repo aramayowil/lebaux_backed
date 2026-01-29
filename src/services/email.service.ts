@@ -1,7 +1,7 @@
 import dotenv from 'dotenv'
 dotenv.config()
 import nodemailer from 'nodemailer'
-import { capitalize } from '@/utils/functions/capitalize'
+import { capitalize } from '../utils/functions/capitalize'
 
 // Configuración del motor de Gmail
 const transporter = nodemailer.createTransport({

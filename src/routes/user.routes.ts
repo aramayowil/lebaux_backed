@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import { userController } from '@/controllers/user.controller'
-import { verifyToken } from '@/middlewares/jwt.middleware'
+import { userController } from '../controllers/user.controller'
+import { verifyToken } from '../middlewares/jwt.middleware'
 
 const router = Router()
 
