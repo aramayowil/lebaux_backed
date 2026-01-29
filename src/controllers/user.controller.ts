@@ -3,12 +3,15 @@ import { Request, Response } from 'express'
 import validateEmail from '../utils/Regex/emailRegex'
 import validatePassword from '../utils/Regex/PasswordRegex'
 import { hashPassword } from '../utils/functions/hashedPassword'
-import generateToken from '@/utils/functions/generateToken'
+import generateAuthToken from '@/utils/functions/generateToken'
 import comparePassword from '@/utils/functions/comparePassword'
 import IUser from '../interface/IUser'
 import { validateName } from '@/utils/Regex/nameRegex'
-import { sendWelcomeEmail } from '@/services/email.service'
-import crypto from 'crypto'
+import {
+  sendWelcomeEmail,
+  sendResetPasswordEmail,
+} from '@/services/email.service'
+import { generateVerificationData } from '@/utils/token.utils'
 
 //funcion para registrar un usuario
 
@@ -21,7 +24,7 @@ const register = async (req: Request, res: Response) => {
       'email',
       'nombre',
       'apellido',
-      'password_hash',
+      'password',
     ]
     // "Busca si algún campo requerido no está presente o no es del tipo correcto"
     const missingField = requiredFields.find(
@@ -30,11 +33,13 @@ const register = async (req: Request, res: Response) => {
 
     if (missingField) {
       return res.status(400).json({
-        error: `Field '${missingField}' is missing or invalid`,
+        ok: false,
+        message: `El campo '${missingField}' es requerido`,
+        error: `Field '${missingField}' is required`,
       })
     }
 
-    const { email, nombre, apellido, password_hash } = body
+    const { email, nombre, apellido, password } = body
 
     const cleanEmail = email.trim().toLowerCase()
     const cleanNombre = nombre.trim().toLowerCase()
@@ -43,29 +48,43 @@ const register = async (req: Request, res: Response) => {
     const existsEmail = await UserModel.findUserByEmail(cleanEmail)
 
     if (!validateEmail(cleanEmail)) {
-      return res.status(400).json({ error: 'Invalid email' })
+      return res
+        .status(400)
+        .json({ ok: false, message: 'Correo invalido', error: 'Invalid email' })
     }
     if (!validateName(cleanNombre)) {
-      return res.status(400).json({ error: 'Invalid name' })
+      return res
+        .status(400)
+        .json({ ok: false, message: 'Nombre invalido', error: 'Invalid name' })
     }
     if (!validateName(cleanApellido)) {
-      return res.status(400).json({ error: 'Invalid last name' })
+      return res.status(400).json({
+        ok: false,
+        message: 'Apellido invalido',
+        error: 'Invalid last name',
+      })
     }
 
-    const passwordCheck = validatePassword(password_hash)
+    const passwordCheck = validatePassword(password)
     if (!passwordCheck.isValid) {
-      return res.status(400).json({ error: 'Invalid password' })
+      return res.status(400).json({
+        ok: false,
+        message: 'Contraseña invalida',
+        error: 'Invalid password',
+      })
     }
     if (existsEmail) {
-      return res.status(409).json({ error: 'Email already exists' })
+      return res.status(409).json({
+        ok: false,
+        message: 'Correo ya registrado',
+        error: 'Email already registered',
+      })
     }
 
     //Generar token de 24 horas
-    const vToken = crypto.randomBytes(32).toString('hex')
-    const expiration = new Date()
-    expiration.setHours(expiration.getHours() + 24)
+    const { vToken, expiration } = generateVerificationData()
     //Hashear la contraseña
-    const hashedPassword = await hashPassword(password_hash)
+    const hashedPassword = await hashPassword(password)
 
     const finalRol: 'admin' | 'user' = 'user'
     const finalIsVerified: boolean = false
@@ -74,30 +93,36 @@ const register = async (req: Request, res: Response) => {
       email: cleanEmail,
       nombre: cleanNombre,
       apellido: cleanApellido,
-      rol: finalRol,
+      role: finalRol,
       is_verified: finalIsVerified,
-      password_hash: hashedPassword,
+      password: hashedPassword,
       verification_token: vToken,
       token_expires_at: expiration,
     })
 
-    sendWelcomeEmail(newUser.email, newUser.nombre, vToken).then((response) => {
-      if (!response.success) {
-        console.error('Error enviando email:', response.error)
-      }
-    })
-
-    const token = generateToken(newUser)
+    sendWelcomeEmail(newUser.email, newUser.nombre, vToken)
+      .then((response) => {
+        if (response.success) {
+          console.log(`Email de bienvenida enviado a: ${newUser.email}`)
+        } else {
+          console.error('Falló el envío del email:', response.error)
+        }
+      })
+      .catch((err) => {
+        console.error('Error en el servicio de email:', err)
+      })
 
     res.status(201).json({
       ok: true,
       message: 'Usuario registrado con éxito. Revisa tu correo.',
-      newUser,
-      token,
     })
   } catch (error) {
     console.log(error)
-    res.status(500).json({ ok: false, message: 'Error en el registro' })
+    res.status(500).json({
+      ok: false,
+      message: 'Error en el registro',
+      error: 'Internal server error',
+    })
   }
 }
 
@@ -106,27 +131,57 @@ const resendVerificationEmail = async (req: Request, res: Response) => {
   try {
     const { email } = req.body
 
-    if (!email) return res.status(400).json({ error: 'Email es requerido' })
+    if (email && typeof email !== 'string') {
+      return res.status(400).json({
+        ok: false,
+        message: 'El formato del correo es invalido',
+        error: 'Invalid email format',
+      })
+    }
+
+    if (!email)
+      return res.status(400).json({
+        ok: false,
+        message: 'Email es requerido',
+        error: 'Email is required',
+      })
 
     const user = await UserModel.findUserByEmail(email.trim().toLowerCase())
 
     if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' })
+      return res.status(404).json({
+        ok: false,
+        message: 'Usuario no encontrado',
+        error: 'User not found',
+      })
     }
 
     if (user.is_verified) {
-      return res
-        .status(400)
-        .json({ error: 'Esta cuenta ya ha sido verificada.' })
+      return res.status(400).json({
+        ok: false,
+        message: 'Esta cuenta ya ha sido verificada.',
+        error: 'Account already verified',
+      })
     }
-    // const emailResponse = await sendWelcomeEmail(user.email, user.nombre)
 
-    // if (!emailResponse.success) {
-    //   return res.status(500).json({
-    //     error: 'Error al enviar el correo',
-    //     details: emailResponse.error,
-    //   })
-    // }
+    //generamos nuevo token
+    const { vToken, expiration } = generateVerificationData()
+    //guardamos en DB el nuevo token
+    await UserModel.updateVerificationToken(user.usuario_id, vToken, expiration)
+
+    const emailResponse = await sendWelcomeEmail(
+      user.email,
+      user.nombre,
+      vToken,
+    )
+
+    if (!emailResponse.success) {
+      return res.status(500).json({
+        ok: false,
+        message: 'Error al enviar el correo',
+        error: emailResponse.error,
+      })
+    }
 
     res.status(200).json({
       ok: true,
@@ -134,7 +189,11 @@ const resendVerificationEmail = async (req: Request, res: Response) => {
     })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ ok: false, message: 'Error interno del servidor' })
+    res.status(500).json({
+      ok: false,
+      message: 'Error interno del servidor',
+      error: 'Internal server error',
+    })
   }
 }
 
@@ -146,8 +205,8 @@ const verifyEmail = async (req: Request, res: Response) => {
     if (!email || !vToken) {
       return res.status(400).json({
         ok: false,
-        error: 'INVALID_LINK',
         message: 'El enlace de verificación es inválido o ha expirado.',
+        error: 'INVALID_LINK',
       })
     }
 
@@ -176,25 +235,26 @@ const verifyEmail = async (req: Request, res: Response) => {
     if (user.verification_token !== vToken) {
       return res.status(400).json({
         ok: false,
+        message: 'El código de verificación no es válido para este correo.',
         error: 'INVALID_TOKEN',
-        message: 'El token de verificación es inválido.',
       })
     }
 
     if (user.token_expires_at && now > new Date(user.token_expires_at)) {
       return res.status(410).json({
         ok: false,
-        error: 'TOKEN_EXPIRED',
         message:
           'El enlace ha expirado. Por favor, solicita uno nuevo iniciando sesion.',
+        error: 'TOKEN_EXPIRED',
       })
     }
 
     //Actualizar usuario a verificado
-    await UserModel.updateUserVerification(user.usuario_id)
+    await UserModel.verifyUserAndClearToken(user.usuario_id)
 
     res.status(200).json({
       ok: true,
+      user,
       message: 'Email verificado con éxito. Ya puedes iniciar sesión.',
     })
   } catch (error) {
@@ -214,44 +274,81 @@ const login = async (req: Request, res: Response) => {
 
     //validacion del email
     if (typeof email !== 'string' || typeof password !== 'string') {
-      return res
-        .status(400)
-        .json({ error: 'Email and password must be strings' })
+      return res.status(400).json({ error: 'Email y/o contraseña inválidos' })
     }
     //limpiamos espacios en blanco del email y lo convertimos a minusculas para evitar errores de tipeo
     const cleanEmail = email.trim().toLowerCase()
 
     if (!validateEmail(cleanEmail)) {
-      return res.status(400).json({ error: 'Invalid email' })
+      return res.status(400).json({
+        ok: false,
+        message: 'Email no tiene un formato valido',
+        error: 'Email not valid',
+      })
     }
 
     const user = await UserModel.findUserByEmail(cleanEmail)
 
     const isMatch = user
-      ? await comparePassword(password, user.password_hash)
+      ? await comparePassword(password, user.password)
       : false
 
     if (!isMatch || !user) {
-      return res.status(401).json({ error: 'Invalid email or password' })
-    }
-
-    if (!user.is_verified) {
-      return res.status(403).json({
+      return res.status(401).json({
         ok: false,
-        error: 'EMAIL_NOT_VERIFIED',
-        message:
-          'Tu cuenta aún no ha sido verificada. Revisa tu correo electrónico.',
+        message: 'Email y/o contraseña incorrectos',
+        error: 'Email or password invalid',
       })
     }
 
-    const token = generateToken(user)
+    if (!user.is_verified) {
+      const { vToken, expiration } = generateVerificationData()
+      await UserModel.updateVerificationToken(
+        user.usuario_id,
+        vToken,
+        expiration,
+      )
 
-    res
-      .status(200)
-      .json({ ok: true, message: 'User logged in successfully', token })
+      sendWelcomeEmail(user.email, user.nombre, vToken)
+        .then((response) => {
+          if (response.success) {
+            console.log(`Email de bienvenida enviado a: ${user.email}`)
+          } else {
+            console.error('Falló el envío del email:', response.error)
+          }
+        })
+        .catch((err) => {
+          console.error('Error en el servicio de email:', err)
+        })
+      return res.status(403).json({
+        ok: false,
+        data: { email: user.email, nombre: user.nombre },
+        message:
+          'Tu cuenta no está verificada. Te hemos enviado un nuevo enlace de activación.',
+        error: 'Email not verified',
+      })
+    }
+
+    const auth_token = generateAuthToken(user)
+
+    res.status(200).json({
+      ok: true,
+      message: 'Login exitoso',
+      auth_token,
+      user: {
+        usuario_id: user.usuario_id,
+        email: user.email,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        role: user.role,
+        photo_profile: user.photo_profile,
+      },
+    })
   } catch (error) {
     console.log(error)
-    res.status(500).json({ ok: false, message: 'Error en el login' })
+    res
+      .status(500)
+      .json({ ok: false, message: 'Error en el login', error: error })
   }
 }
 
@@ -261,12 +358,18 @@ const profile = async (req: Request, res: Response) => {
   try {
     const user = await UserModel.findUserByEmail(email)
     if (!user) {
-      return res.status(404).json({ error: 'User not found' })
+      return res.status(404).json({
+        ok: false,
+        message: 'Usuario no encontrado',
+        error: 'User not found',
+      })
     }
-    res.status(200).json({ ok: true, message: 'User profile', user })
+    res.status(200).json({ ok: true, message: 'Perfil del usuario', user })
   } catch (error) {
     console.log(error)
-    res.status(500).json({ ok: false, message: 'Error en el perfil' })
+    res
+      .status(500)
+      .json({ ok: false, message: 'Error en el perfil', error: error })
   }
 }
 
@@ -274,15 +377,212 @@ const profile = async (req: Request, res: Response) => {
 const findAllUsers = async (req: Request, res: Response) => {
   try {
     const users = await UserModel.findAllUsers()
-    res.status(200).json({ ok: true, message: 'Users found', users })
+    res.status(200).json({ ok: true, message: 'Usuarios encontrados', users })
   } catch (error) {
     console.log(error)
-    res
-      .status(500)
-      .json({ ok: false, message: 'Error en la busqueda de usuarios' })
+    res.status(500).json({
+      ok: false,
+      message: 'Error en la busqueda de usuarios',
+      error: 'Internal server error',
+    })
   }
 }
 
+const sendEmailResetPassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body
+
+    if (!validateEmail(email) || typeof email !== 'string') {
+      return res.status(400).json({
+        ok: false,
+        message: 'Email no tiene un formato valido',
+        error: 'Email not valid',
+      })
+    }
+    const user = await UserModel.findUserByEmail(email)
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Usuario no encontrado',
+        error: 'User not found',
+      })
+    }
+    const { vToken, expiration } = generateVerificationData()
+    await UserModel.updateVerificationToken(user.usuario_id, vToken, expiration)
+    sendResetPasswordEmail(user.email, user.nombre, vToken)
+      .then((response) => {
+        if (response.success) {
+          console.log(`Email de recuperacion enviado a: ${user.email}`)
+        } else {
+          console.error('Falló el envío del email:', response.error)
+        }
+      })
+      .catch((err) => {
+        console.error('Error en el servicio de email:', err)
+      })
+    res.status(200).json({
+      ok: true,
+      message: 'Correo de recuperación enviado con éxito.',
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      ok: false,
+      message: 'Error interno del servidor',
+      error: 'Internal server error',
+    })
+  }
+}
+
+const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { email, vToken, new_password } = req.body
+
+    if (!email || !vToken || !new_password) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Faltan datos',
+        error: 'Missing data',
+      })
+    }
+    if (
+      typeof email !== 'string' ||
+      typeof vToken !== 'string' ||
+      typeof new_password !== 'string'
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message: 'tipo de datos inválidos',
+        error: 'Invalid data type',
+      })
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Email no tiene un formato valido',
+        error: 'Email not valid',
+      })
+    }
+    if (!validatePassword(new_password)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Contraseña no tiene un formato valido',
+        error: 'Password not valid',
+      })
+    }
+
+    const user = await UserModel.findUserByEmail(email)
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Usuario no encontrado',
+        error: 'User not found',
+      })
+    }
+
+    if (user.verification_token !== vToken) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Token de verificación no válido',
+        error: 'Invalid verification token',
+      })
+    }
+    if (user.token_expires_at && user.token_expires_at < new Date()) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Token de verificación expirado',
+        error: 'Verification token expired',
+      })
+    }
+    const hashedPassword = await hashPassword(new_password)
+
+    //actualizamos contraseña primero
+    await UserModel.updatePassword(user.usuario_id, hashedPassword)
+
+    //luego verificamos el usuario y limpiamos el token
+    await UserModel.verifyUserAndClearToken(user.usuario_id)
+
+    res.status(200).json({
+      ok: true,
+      message: 'Contraseña actualizada con éxito.',
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      ok: false,
+      message: 'Error interno del servidor',
+      error: 'Internal server error',
+    })
+  }
+}
+
+const updatePhotoProfile = async (req: Request, res: Response) => {
+  try {
+    const { id, scrPhoto } = req.body
+
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Id no proporcionado',
+        error: 'Id not provided',
+      })
+    }
+    if (typeof id !== 'number') {
+      return res.status(400).json({
+        ok: false,
+        message: 'tipo de dato inválido',
+        error: 'Invalid data type',
+      })
+    }
+
+    if (!scrPhoto) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Foto de perfil no proporcionada',
+        error: 'Photo profile not provided',
+      })
+    }
+
+    if (typeof scrPhoto !== 'string') {
+      return res.status(400).json({
+        ok: false,
+        message: 'tipo de dato inválido',
+        error: 'Invalid data type',
+      })
+    }
+    const user = await UserModel.findUserById(id)
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        message: 'Usuario no encontrado',
+        error: 'User not found',
+      })
+    }
+
+    await UserModel.updatePhotoProfile(user.usuario_id, scrPhoto)
+    res.status(200).json({
+      ok: true,
+      message: 'Foto de perfil actualizada con éxito.',
+      user: {
+        usuario_id: user.usuario_id,
+        email: user.email,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        role: user.role,
+        is_verified: user.is_verified,
+        photo_profile: scrPhoto,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({
+      ok: false,
+      message: 'Error interno del servidor',
+      error: 'Internal server error',
+    })
+  }
+}
 export const userController = {
   register,
   login,
@@ -290,4 +590,7 @@ export const userController = {
   findAllUsers,
   resendVerificationEmail,
   verifyEmail,
+  sendEmailResetPassword,
+  resetPassword,
+  updatePhotoProfile,
 }

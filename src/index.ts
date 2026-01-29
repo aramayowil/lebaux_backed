@@ -4,16 +4,15 @@ import cors from 'cors'
 import userRoutes from './routes/user.routes'
 
 const app = express()
-app.use(cors())
+app.use(cors({ origin: '*' }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-
-const PORT = process.env.PORT || 4000
 
 //Routes
 app.use('/api/users', userRoutes)
 
-//Server
+const PORT: number = Number(process.env.PORT) || 4000
+
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+  console.log(`🚀 Server running on http://localhost:${PORT}`)
 })
