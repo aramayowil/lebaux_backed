@@ -2,6 +2,11 @@ import dotenv from 'dotenv'
 dotenv.config()
 import { Pool } from 'pg'
 
+console.log('¿Existe la variable?:', !!process.env.DATABASE_URL)
+if (process.env.DATABASE_URL) {
+  console.log('Inicio de la URL:', process.env.DATABASE_URL.substring(0, 15))
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
