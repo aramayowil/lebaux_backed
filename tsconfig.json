@@ -1,17 +1,17 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
     "skipLibCheck": true,
     "strict": true,
-    "noEmit": true,
-    "isolatedModules": true,
-    "resolveJsonModule": true
+    "noEmit": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "outDir": "./dist"
   },
-  "include": ["src/**/*", "src/index.ts"]
+  "include": ["src/**/*"]
 }
