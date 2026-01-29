@@ -12,10 +12,10 @@ const pool = new Pool({
   idleTimeoutMillis: 0,
   connectionTimeoutMillis: 5000,
 })
-try {
-  await pool.connect()
-  console.log('DATABASE connected')
-} catch (error) {
-  console.log('DATABASE connection error', error)
-}
+
+pool
+  .connect()
+  .then(() => console.log('DATABASE connected'))
+  .catch((error) => console.log('DATABASE connection error', error))
+
 export default pool
