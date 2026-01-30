@@ -12,10 +12,10 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false,
   },
-  // AJUSTES PARA VERCEL Y POOLER:
-  max: 1, // Mantenemos 1 para no saturar el pooler gratuito
-  connectionTimeoutMillis: 10000, // Subimos a 10 segundos (Vercel a veces es lento al arrancar)
-  idleTimeoutMillis: 10000, // No lo dejes en 0, permite que la conexión se cierre si no se usa
+  // Ajustes de estabilidad para Vercel
+  max: 2, // Permitimos hasta 2 para dar margen de error
+  connectionTimeoutMillis: 15000, // 15 segundos (más paciencia)
+  idleTimeoutMillis: 1000, // Cerramos rápido las conexiones inactivas
 })
 
 pool
