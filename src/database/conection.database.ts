@@ -12,10 +12,10 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false,
   },
-  // Configuraciones óptimas para el modo Transaction de Supabase
-  max: 1,
-  idleTimeoutMillis: 0,
-  connectionTimeoutMillis: 5000,
+  // AJUSTES PARA VERCEL Y POOLER:
+  max: 1, // Mantenemos 1 para no saturar el pooler gratuito
+  connectionTimeoutMillis: 10000, // Subimos a 10 segundos (Vercel a veces es lento al arrancar)
+  idleTimeoutMillis: 10000, // No lo dejes en 0, permite que la conexión se cierre si no se usa
 })
 
 pool
