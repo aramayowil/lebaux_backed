@@ -1,7 +1,8 @@
 {
   "version": 2,
-  "routes": [
-    { "src": "/favicon.png", "dest": "/favicon.png" },
-    { "src": "/(.*)", "dest": "src/index.ts" }
+  "rewrites": [
+    { "source": "/favicon.png", "destination": "/favicon.png" },
+    { "source": "/api/(.*)", "destination": "/src/index.ts" },
+    { "source": "/(.*)", "destination": "/src/index.ts" }
   ]
 }
